@@ -33,7 +33,9 @@ def _make_engine():
     )
 
 
-_engine = _make_engine()
+# Module-level engine — exported so make_tenant_resolver can use it
+engine = _make_engine()
+_engine = engine  # backwards compat alias
 
 AsyncSessionLocal = async_sessionmaker(
     bind=_engine,
