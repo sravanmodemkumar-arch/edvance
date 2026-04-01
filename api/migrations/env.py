@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from shared.db.base import Base
 from api.modules.auth.models import User, UserTenant, Session, PasswordResetToken, OTP, OTPRateLimit  # noqa: F401
 from api.modules.tenancy.models import Tenant, Shard, TenantQuotaEvent  # noqa: F401
+from api.modules.roles.models import Role, RoleChangeLog, RoleAssignment, RoleDelegation  # noqa: F401
 from shared.db.audit import AuditLog  # noqa: F401
 
 config = context.config
