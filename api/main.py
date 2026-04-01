@@ -18,7 +18,11 @@ from api.modules import router as modules_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield  # startup / shutdown hooks go here
+    # Wire tenant resolver so TenantMiddleware can query DB for slug → tenant
+    from api.core.database import engine as _engine
+    from api.modules.tenancy.dependencies import make_tenant_resolver
+    app.state.tenant_resolver = make_tenant_resolver(_engine)
+    yield
 
 
 def create_app() -> FastAPI:
