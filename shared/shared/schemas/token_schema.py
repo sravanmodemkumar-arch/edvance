@@ -3,13 +3,16 @@ from pydantic import BaseModel
 
 
 class TokenPayload(BaseModel):
-    sub: str        # user_id
-    role: str       # student | staff | admin | platform_admin
-    inst: int | None = None  # institution_id (None for platform users)
+    sub: str                          # "usr_abc123"
+    tenant_id: str                    # "sch_0501"
+    institution_type: str             # SCHOOL | COACHING | HOSTEL | PLATFORM
+    roles: list[str]                  # ["TEACHER", "COORDINATOR"]
+    scopes: list[str]                 # ["read:students", "write:attendance"]
+    session_id: str                   # opaque session reference
     exp: int
 
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
+    expires_in: int = 900             # seconds (15 min)
