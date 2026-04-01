@@ -1,0 +1,110 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com
+
+jobs:
+  # ─── Deploy Lambda Services ───────────────────────────────────────────────
+  deploy-lambda:
+    name: Deploy ${{ matrix.service }} → Lambda
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [identity, exam, notification, billing, ai, analytics]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install SAM CLI
+        run: pip install aws-sam-cli
+
+      - name: Install service dependencies
+        run: |
+          cd ${{ matrix.service }}
+          pip install -r requirements.txt -t .
+
+      - name: Run pre-deploy tests
+        run: |
+          cd ${{ matrix.service }}
+          pip install pytest pytest-asyncio httpx
+          pytest -x -q
+        env:
+          APP_ENV: production
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: SAM build & deploy
+        run: |
+          sam build --template ${{ matrix.service }}/template.yaml
+          sam deploy \
+            --stack-name edvance-${{ matrix.service }} \
+            --region ${{ env.AWS_REGION }} \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              DatabaseUrl=${{ secrets.DATABASE_URL }} \
+              JwtSecretKey=${{ secrets.JWT_SECRET_KEY }} \
+              AppEnv=production
+
+  # ─── Deploy Portal → ECS Fargate ──────────────────────────────────────────
+  deploy-portal:
+    name: Deploy portal → ECS Fargate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag & push portal image
+        id: build-image
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          IMAGE_URI=${{ env.ECR_REGISTRY }}/edvance-portal:$IMAGE_TAG
+          docker build -t $IMAGE_URI ./portal
+          docker push $IMAGE_URI
+          echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster edvance-production \
+            --service edvance-portal \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for ECS deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster edvance-production \
+            --services edvance-portal \
+            --region ${{ env.AWS_REGION }}

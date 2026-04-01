@@ -1,0 +1,129 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: edvance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@edvance.in
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
+  identity:
+    build: ./identity
+    ports:
+      - "8001:8001"
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./identity:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+
+  portal:
+    build: ./portal
+    ports:
+      - "8002:8002"
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./portal:/app
+    command: python manage.py runserver 0.0.0.0:8002
+
+  exam:
+    build: ./exam
+    ports:
+      - "8003:8003"
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./exam:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
+
+  notification:
+    build: ./notification
+    ports:
+      - "8004:8004"
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./notification:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8004 --reload
+
+  billing:
+    build: ./billing
+    ports:
+      - "8005:8005"
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./billing:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8005 --reload
+
+  ai:
+    build: ./ai
+    ports:
+      - "8006:8006"
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./ai:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8006 --reload
+
+  analytics:
+    build: ./analytics
+    ports:
+      - "8007:8007"
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./analytics:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8007 --reload
+
+volumes:
+  postgres_data:

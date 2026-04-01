@@ -1,0 +1,89 @@
+name: Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: "0 2 * * 1"  # Every Monday at 2 AM IST
+
+jobs:
+  bandit:
+    name: Bandit — Python Security Scan
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service: [identity, portal, exam, notification, billing, ai, analytics]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Bandit
+        run: pip install bandit[toml]
+
+      - name: Run Bandit
+        run: |
+          bandit -r ${{ matrix.service }} \
+            -x ${{ matrix.service }}/venv,${{ matrix.service }}/.venv,${{ matrix.service }}/tests \
+            -ll \
+            --format json \
+            -o bandit-${{ matrix.service }}.json || true
+
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-${{ matrix.service }}
+          path: bandit-${{ matrix.service }}.json
+
+  safety:
+    name: Safety — Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service: [identity, portal, exam, notification, billing, ai, analytics]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Safety
+        run: pip install safety
+
+      - name: Run Safety check
+        run: |
+          if [ -f ${{ matrix.service }}/requirements.txt ]; then
+            safety check -r ${{ matrix.service }}/requirements.txt --output json \
+              > safety-${{ matrix.service }}.json || true
+          fi
+
+      - name: Upload Safety results
+        uses: actions/upload-artifact@v4
+        with:
+          name: safety-${{ matrix.service }}
+          path: safety-${{ matrix.service }}.json
+
+  secret-scan:
+    name: Gitleaks — Secret Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
