@@ -1,0 +1,49 @@
+# Cloudflare Workers config — Phase 1 edge functions only
+# The main API runs on VPS behind CF Tunnel (not CF Workers)
+# Workers handle: auth token validation, rate limiting, geo-routing
+
+name = "edvance-edge"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+account_id = "${CF_ACCOUNT_ID}"
+
+# ── Rate limiting rules ───────────────────────────────────────────────────────
+[[rules]]
+type = "ESModule"
+
+# ── R2 bucket bindings ────────────────────────────────────────────────────────
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "edvance-media"
+
+[[r2_buckets]]
+binding = "EXAM_BUCKET"
+bucket_name = "edvance-exam"
+
+# ── Queue bindings ────────────────────────────────────────────────────────────
+[[queues.producers]]
+binding = "CDN_QUEUE"
+queue = "edvance-cdn"
+
+[[queues.producers]]
+binding = "EXAM_QUEUE"
+queue = "edvance-exam"
+
+[[queues.producers]]
+binding = "NOTIF_QUEUE"
+queue = "edvance-notification"
+
+# ── Environment: production ───────────────────────────────────────────────────
+[env.production]
+name = "edvance-edge-prod"
+routes = [{ pattern = "*.edvance.in/api/edge/*", zone_name = "edvance.in" }]
+
+[env.production.vars]
+APP_ENV = "production"
+
+# ── Environment: staging ──────────────────────────────────────────────────────
+[env.staging]
+name = "edvance-edge-staging"
+routes = [{ pattern = "*.staging.edvance.in/api/edge/*", zone_name = "edvance.in" }]

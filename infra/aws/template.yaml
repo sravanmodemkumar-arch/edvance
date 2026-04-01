@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Edvance API — Lambda (ARM Graviton) + SQS workers
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]
+    MemorySize: 512
+    Timeout: 30
+    Environment:
+      Variables:
+        APP_ENV: !Ref AppEnv
+        INFRA_PROVIDER: !Ref InfraProvider
+
+Parameters:
+  AppEnv:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, qa, staging, production]
+  InfraProvider:
+    Type: String
+    Default: hybrid
+    AllowedValues: [hybrid, aws]
+
+Resources:
+  # ── API Lambda ──────────────────────────────────────────────────────────────
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edvance-api-${AppEnv}
+      CodeUri: ../../api/
+      Handler: api.main.handler
+      MemorySize: 1024
+      Timeout: 29
+      Events:
+        ApiGateway:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+  # ── Exam worker Lambda (SQS trigger) ────────────────────────────────────────
+  ExamWorker:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edvance-exam-worker-${AppEnv}
+      CodeUri: ../../api/
+      Handler: api.workers.exam_worker.handler
+      MemorySize: 512
+      Timeout: 300
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !Sub arn:aws:sqs:ap-south-1:${AWS::AccountId}:edvance-exam-${AppEnv}
+            BatchSize: 10
+
+  # ── Notification worker Lambda ───────────────────────────────────────────────
+  NotificationWorker:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edvance-notif-worker-${AppEnv}
+      CodeUri: ../../api/
+      Handler: api.workers.notification_worker.handler
+      MemorySize: 256
+      Timeout: 60
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !Sub arn:aws:sqs:ap-south-1:${AWS::AccountId}:edvance-notification-${AppEnv}
+            BatchSize: 25

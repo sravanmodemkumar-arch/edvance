@@ -1,1 +1,0 @@
-"""billing service application package."""

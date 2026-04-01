@@ -1,0 +1,44 @@
+{
+  "auth": {
+    "invalid_credentials": "Invalid mobile number or password.",
+    "account_locked": "Account locked. Try again after {minutes} minutes.",
+    "otp_sent": "OTP sent to {mobile}.",
+    "otp_invalid": "Invalid or expired OTP.",
+    "token_expired": "Session expired. Please login again.",
+    "insufficient_permissions": "You do not have permission to perform this action.",
+    "logout_success": "Logged out successfully."
+  },
+  "student": {
+    "not_found": "Student not found.",
+    "already_exists": "A student with this admission number already exists.",
+    "created": "Student registered successfully."
+  },
+  "staff": {
+    "not_found": "Staff member not found.",
+    "already_exists": "A staff member with this employee ID already exists."
+  },
+  "exam": {
+    "not_started": "Exam has not started yet.",
+    "already_submitted": "Exam already submitted.",
+    "time_expired": "Exam time has expired.",
+    "started": "Exam started. Good luck!",
+    "submitted": "Exam submitted successfully."
+  },
+  "fee": {
+    "payment_failed": "Payment failed. Please try again.",
+    "receipt_generated": "Fee receipt generated successfully.",
+    "already_paid": "Fee for this period is already paid."
+  },
+  "attendance": {
+    "marked": "Attendance marked successfully.",
+    "already_marked": "Attendance already marked for today."
+  },
+  "common": {
+    "not_found": "{resource} not found.",
+    "validation_error": "Please check the provided information.",
+    "server_error": "Something went wrong. Please try again.",
+    "deleted": "{resource} deleted successfully.",
+    "updated": "{resource} updated successfully.",
+    "created": "{resource} created successfully."
+  }
+}

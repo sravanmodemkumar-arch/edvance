@@ -1,0 +1,32 @@
+# CF Tunnel config — Phase 1 VPS → Cloudflare
+# Run: cloudflared tunnel run edvance-tunnel
+#
+# Setup:
+#   cloudflared tunnel create edvance-tunnel
+#   cloudflared tunnel route dns edvance-tunnel api.edvance.in
+#   cloudflared tunnel route dns edvance-tunnel app.edvance.in
+
+tunnel: edvance-tunnel
+credentials-file: /home/cloudflared/.cloudflared/edvance-tunnel.json
+
+ingress:
+  # FastAPI API
+  - hostname: api.edvance.in
+    service: http://localhost:8000
+    originRequest:
+      connectTimeout: 10s
+      noTLSVerify: false
+
+  # Django Portal
+  - hostname: app.edvance.in
+    service: http://localhost:8080
+    originRequest:
+      connectTimeout: 10s
+      noTLSVerify: false
+
+  # Health check (internal only)
+  - hostname: health.edvance.internal
+    service: http://localhost:8000/health
+
+  # Catch-all (required by cloudflared)
+  - service: http_status:404

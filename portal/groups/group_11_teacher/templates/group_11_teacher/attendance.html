@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "components/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+
+<div class="card">
+  <div class="flex justify-between items-center mb-4">
+    <h3 class="text-lg font-semibold">Mark Attendance</h3>
+    <button class="btn btn-primary"
+            hx-post="{% url 'teacher:attendance' %}"
+            hx-include="#attendance-form"
+            hx-target="#attendance-result">
+      Save Attendance
+    </button>
+  </div>
+
+  {% include "components/alert.html" %}
+
+  <form id="attendance-form">
+    {% csrf_token %}
+    <div id="student-list"
+         hx-get="{% url 'teacher:attendance' %}?partial=students"
+         hx-trigger="load">
+      {% include "components/empty_state.html" with message="Select a class to load students." %}
+    </div>
+  </form>
+
+  <div id="attendance-result"></div>
+</div>
+{% endblock %}

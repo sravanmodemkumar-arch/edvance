@@ -1,129 +1,92 @@
-version: "3.9"
+# Phase 1 VPS deployment — all services on one machine
+# Also used for local development.
+# Phase 2+: API → Lambda, Portal → ECS (use infra/aws/template.yaml).
 
 services:
+  # ── FastAPI (Monolith — 57 modules) ───────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    ports:
+      - "8000:8000"
+    env_file: env/.env.cloudflare
+    volumes:
+      - ./secrets:/app/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Django Portal (11 groups) ─────────────────────────────────────────────
+  portal:
+    build:
+      context: .
+      dockerfile: infra/docker/portal.Dockerfile
+    ports:
+      - "8080:8080"
+    env_file: env/.env.cloudflare
+    volumes:
+      - ./secrets:/app/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Celery Worker (PostgreSQL broker — Phase 1 only) ─────────────────────
+  celery-worker:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    command: uv run celery -A api.core.celery_app.celery_app worker -l info -c 4
+    env_file: env/.env.cloudflare
+    volumes:
+      - ./secrets:/app/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Celery Beat (cron scheduler — Phase 1) ────────────────────────────────
+  celery-beat:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    command: uv run celery -A api.core.celery_app.celery_app beat -l info
+    env_file: env/.env.cloudflare
+    volumes:
+      - ./secrets:/app/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── PostgreSQL (local dev + Phase 1 prod) ────────────────────────────────
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: edvance
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: edvance
+      POSTGRES_PASSWORD: localpass
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U edvance"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@edvance.in
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    depends_on:
-      - db
-
-  identity:
-    build: ./identity
-    ports:
-      - "8001:8001"
-    env_file: .env
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
-    depends_on:
-      db:
-        condition: service_healthy
+  # ── CF Tunnel (Phase 1 production — expose VPS via CF) ───────────────────
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: [production]
+    command: tunnel run edvance-tunnel
     volumes:
-      - ./identity:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
-
-  portal:
-    build: ./portal
-    ports:
-      - "8002:8002"
-    env_file: .env
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./portal:/app
-    command: python manage.py runserver 0.0.0.0:8002
-
-  exam:
-    build: ./exam
-    ports:
-      - "8003:8003"
-    env_file: .env
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./exam:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
-
-  notification:
-    build: ./notification
-    ports:
-      - "8004:8004"
-    env_file: .env
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./notification:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8004 --reload
-
-  billing:
-    build: ./billing
-    ports:
-      - "8005:8005"
-    env_file: .env
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./billing:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8005 --reload
-
-  ai:
-    build: ./ai
-    ports:
-      - "8006:8006"
-    env_file: .env
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./ai:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8006 --reload
-
-  analytics:
-    build: ./analytics
-    ports:
-      - "8007:8007"
-    env_file: .env
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/edvance
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./analytics:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8007 --reload
+      - ~/.cloudflared:/home/nonroot/.cloudflared:ro
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
+  pgdata:

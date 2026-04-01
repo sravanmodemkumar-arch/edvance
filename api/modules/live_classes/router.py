@@ -1,0 +1,4 @@
+"""live_classes router — endpoints registered here."""
+from fastapi import APIRouter
+
+router = APIRouter()

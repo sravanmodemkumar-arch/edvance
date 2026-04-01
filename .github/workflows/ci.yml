@@ -7,6 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
+  # ── 100-line limit ──────────────────────────────────────────────────────────
   line-limit:
     name: Enforce 100-line file limit
     runs-on: ubuntu-latest
@@ -15,120 +16,81 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Check all files ≤ 100 lines
-        run: python scripts/check_line_count.py .
+      - run: python scripts/check_line_count.py .
 
-  lint-and-test:
-    name: Lint & Test (${{ matrix.service }} / Python ${{ matrix.python-version }})
+  # ── Lint + Format (ruff) ────────────────────────────────────────────────────
+  lint:
+    name: Lint & Format (ruff)
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12"]
-        service: [identity, exam, notification, billing, ai, analytics]
-
-    defaults:
-      run:
-        working-directory: ${{ matrix.service }}
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v3
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: ${{ matrix.service }}/requirements.txt
+          version: "latest"
+      - run: uv sync --dev --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install flake8 black pytest pytest-cov pytest-asyncio httpx
-
-      - name: Lint (flake8)
-        run: flake8 . --max-line-length=120 --exclude=venv,.venv,migrations
-
-      - name: Format check (black)
-        run: black --check . --line-length=120
-
-      - name: Run tests
-        run: pytest --cov=app --cov-report=xml -v
-        env:
-          DATABASE_URL: postgresql://postgres:password@localhost:5432/edvance_test
-          JWT_SECRET_KEY: test-secret-key
-          APP_ENV: testing
+  # ── API Tests ───────────────────────────────────────────────────────────────
+  test-api:
+    name: Test API (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
 
     services:
       postgres:
         image: postgres:16-alpine
         env:
           POSTGRES_DB: edvance_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-  lint-portal:
-    name: Lint & Test (portal / Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12"]
-
-    defaults:
-      run:
-        working-directory: portal
+          POSTGRES_USER: edvance
+          POSTGRES_PASSWORD: testpass
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v3
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: portal/requirements.txt
-
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install flake8 black pytest pytest-django pytest-cov
-
-      - name: Lint (flake8)
-        run: flake8 . --max-line-length=120 --exclude=venv,.venv,migrations
-
-      - name: Format check (black)
-        run: black --check . --line-length=120
-
-      - name: Run tests
-        run: pytest --cov=. --cov-report=xml -v
+          version: "latest"
+      - run: uv sync --dev --frozen
+      - name: Run API tests
+        run: uv run pytest api/ -v --cov=api --cov-report=xml
         env:
-          DATABASE_URL: postgresql://postgres:password@localhost:5432/edvance_test
+          DATABASE_URL: postgresql://edvance:testpass@localhost:5432/edvance_test
+          JWT_SECRET_KEY: test-secret-key-32-chars-minimum
+          APP_ENV: testing
+          INFRA_PROVIDER: cloudflare
+
+  # ── Portal Tests ────────────────────────────────────────────────────────────
+  test-portal:
+    name: Test Portal (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: edvance_test
+          POSTGRES_USER: edvance
+          POSTGRES_PASSWORD: testpass
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - run: uv sync --dev --frozen
+      - name: Run Portal tests
+        run: uv run pytest portal/ -v --cov=portal --cov-report=xml
+        env:
+          DATABASE_URL: postgresql://edvance:testpass@localhost:5432/edvance_test
           SECRET_KEY: test-django-secret-key
           DEBUG: "true"
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: edvance_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          DJANGO_SETTINGS_MODULE: portal.core.settings.dev

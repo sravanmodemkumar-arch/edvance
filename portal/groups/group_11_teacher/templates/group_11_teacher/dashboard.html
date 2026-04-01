@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+{% include "components/breadcrumb.html" with breadcrumbs=breadcrumbs %}
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+  {% include "components/stat_card.html" with title="Classes Today" value="4" icon="calendar" %}
+  {% include "components/stat_card.html" with title="Attendance Pending" value="2" icon="users" %}
+  {% include "components/stat_card.html" with title="Homework Due" value="3" icon="book" %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="card">
+    <h3 class="text-lg font-semibold mb-4">Today's Schedule</h3>
+    <div id="schedule-list"
+         hx-get="{% url 'teacher:dashboard' %}?partial=schedule"
+         hx-trigger="load">
+      {% include "components/empty_state.html" with message="Loading schedule..." %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="text-lg font-semibold mb-4">Pending Actions</h3>
+    {% include "components/empty_state.html" with message="No pending actions." %}
+  </div>
+</div>
+{% endblock %}
