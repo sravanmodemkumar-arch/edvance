@@ -1,0 +1,21 @@
+{% comment %}
+Reusable pagination component.
+Usage: {% include "components/pagination.html" with page=page total_pages=total_pages %}
+{% endcomment %}
+{% if total_pages > 1 %}
+<nav class="flex items-center justify-between px-4 py-3">
+  <div class="text-sm text-gray-700">
+    Page <span class="font-medium">{{ page }}</span> of <span class="font-medium">{{ total_pages }}</span>
+  </div>
+  <div class="flex gap-1">
+    {% if page > 1 %}
+    <a hx-get="{{ request.path }}?page={{ page|add:'-1' }}" hx-target="#{{ target|default:'content' }}"
+       class="px-3 py-1 rounded border text-sm hover:bg-gray-50">Previous</a>
+    {% endif %}
+    {% if page < total_pages %}
+    <a hx-get="{{ request.path }}?page={{ page|add:'1' }}" hx-target="#{{ target|default:'content' }}"
+       class="px-3 py-1 rounded border text-sm hover:bg-gray-50">Next</a>
+    {% endif %}
+  </div>
+</nav>
+{% endif %}

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "edvance-shared"
+version = "0.1.0"
+description = "Shared utilities for all Edvance services"
+requires-python = ">=3.12"
+dependencies = [
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "pydantic>=2.0",
+    "sqlalchemy>=2.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shared*"]

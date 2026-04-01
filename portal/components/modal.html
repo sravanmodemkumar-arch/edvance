@@ -1,0 +1,15 @@
+{% comment %}
+Reusable modal component.
+Usage: {% include "components/modal.html" with modal_id="confirm-delete" title="Confirm" %}
+{% endcomment %}
+<div id="{{ modal_id }}" class="hidden fixed inset-0 z-50 overflow-y-auto"
+     hx-on::after-request="this.classList.add('hidden')">
+  <div class="flex items-center justify-center min-h-screen px-4">
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-75" onclick="document.getElementById('{{ modal_id }}').classList.add('hidden')"></div>
+    <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">{{ title }}</h3>
+      {% block modal_body %}{% endblock %}
+      <div class="mt-4 flex justify-end gap-2">{% block modal_actions %}{% endblock %}</div>
+    </div>
+  </div>
+</div>

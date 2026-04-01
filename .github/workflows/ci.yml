@@ -7,6 +7,17 @@ on:
     branches: [main, develop]
 
 jobs:
+  line-limit:
+    name: Enforce 100-line file limit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check all files ≤ 100 lines
+        run: python scripts/check_line_count.py .
+
   lint-and-test:
     name: Lint & Test (${{ matrix.service }} / Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest

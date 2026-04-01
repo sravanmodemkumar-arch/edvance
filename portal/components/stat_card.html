@@ -1,0 +1,14 @@
+{% comment %}
+Reusable stat/metric card.
+Usage: {% include "components/stat_card.html" with label="Students" value="1,240" icon="users" %}
+{% endcomment %}
+<div class="bg-white rounded-lg shadow p-6 flex items-center gap-4">
+  <div class="flex-shrink-0 p-3 rounded-full bg-indigo-50">
+    <span class="text-indigo-600 text-xl">{{ icon|default:"📊" }}</span>
+  </div>
+  <div>
+    <p class="text-sm font-medium text-gray-500">{{ label }}</p>
+    <p class="text-2xl font-semibold text-gray-900">{{ value }}</p>
+    {% if change %}<p class="text-xs text-{{ change_color|default:'gray' }}-500">{{ change }}</p>{% endif %}
+  </div>
+</div>
