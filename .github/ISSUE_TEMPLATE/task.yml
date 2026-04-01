@@ -1,0 +1,93 @@
+name: Task
+description: Create a development task (module, group, or feature)
+title: "[TASK] "
+labels: ["task"]
+assignees: []
+
+body:
+  - type: dropdown
+    id: type
+    attributes:
+      label: Task Type
+      options:
+        - Module (backend)
+        - Group (portal UI)
+        - Feature
+        - Bug Fix
+        - Infrastructure
+        - Documentation
+    validations:
+      required: true
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: Service
+      options:
+        - identity
+        - portal
+        - exam
+        - notification
+        - billing
+        - ai
+        - analytics
+        - infra
+    validations:
+      required: true
+
+  - type: input
+    id: branch
+    attributes:
+      label: Branch Name
+      description: "e.g. feature/module-01-auth or feature/group-3-school"
+      placeholder: feature/module-XX-name
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What does this task implement?
+    validations:
+      required: true
+
+  - type: textarea
+    id: spec
+    attributes:
+      label: Spec Reference
+      description: Link to the relevant spec file in docs/modules/ or docs/pages/
+      placeholder: docs/modules/01-auth.md
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: What must be true for this task to be done?
+      value: |
+        - [ ] Models created and migrated
+        - [ ] API endpoints implemented
+        - [ ] Unit tests written (80%+ coverage)
+        - [ ] Integration tests passing
+        - [ ] FastAPI /docs shows all endpoints
+        - [ ] PR merged to develop
+    validations:
+      required: true
+
+  - type: textarea
+    id: test_cases
+    attributes:
+      label: Test Cases
+      description: List the specific test cases to write
+      value: |
+        **Unit Tests:**
+        - [ ] Test:
+        - [ ] Test:
+
+        **Integration Tests:**
+        - [ ] Test: POST /api/v1/.../
+        - [ ] Test: GET /api/v1/.../
+
+        **Edge Cases:**
+        - [ ] Test: invalid input
+        - [ ] Test: unauthorized access

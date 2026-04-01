@@ -1,0 +1,94 @@
+name: Deploy → Dev
+
+on:
+  push:
+    branches: [develop]
+
+env:
+  AWS_REGION: ap-south-1
+  ENVIRONMENT: dev
+
+jobs:
+  deploy-lambda-dev:
+    name: Deploy ${{ matrix.service }} → Lambda (dev)
+    runs-on: ubuntu-latest
+    environment: dev
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [identity, exam, notification, billing, ai, analytics]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install SAM CLI
+        run: pip install aws-sam-cli
+
+      - name: Run tests before deploy
+        run: |
+          cd ${{ matrix.service }}
+          pip install -r requirements.txt pytest pytest-asyncio httpx
+          pytest -x -q
+        env:
+          APP_ENV: dev
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY_DEV }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL_DEV }}
+
+      - name: SAM deploy to dev
+        run: |
+          sam build --template ${{ matrix.service }}/template.yaml
+          sam deploy \
+            --stack-name edvance-dev-${{ matrix.service }} \
+            --region ${{ env.AWS_REGION }} \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              DatabaseUrl=${{ secrets.DATABASE_URL_DEV }} \
+              JwtSecretKey=${{ secrets.JWT_SECRET_KEY_DEV }} \
+              AppEnv=dev
+
+  deploy-portal-dev:
+    name: Deploy portal → Fargate (dev)
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push portal image (dev)
+        run: |
+          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/edvance-portal:dev-${{ github.sha }}
+          docker build -t $IMAGE_URI ./portal
+          docker push $IMAGE_URI
+
+      - name: Update ECS dev service
+        run: |
+          aws ecs update-service \
+            --cluster edvance-dev \
+            --service edvance-portal-dev \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}

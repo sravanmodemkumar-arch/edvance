@@ -1,0 +1,116 @@
+name: Task Branch Setup
+
+on:
+  create:
+    # Fires when a branch is created
+
+jobs:
+  scaffold-tests:
+    name: Scaffold test file for new feature branch
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/heads/feature/')
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Extract service and task name from branch
+        id: parse
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          # feature/module-01-auth → service=identity, task=module-01-auth
+          # feature/group-3-school → service=portal, task=group-3-school
+          if [[ "$BRANCH" == feature/module-* ]]; then
+            MODULE_NUM=$(echo $BRANCH | grep -oP '(?<=module-)\d+')
+            if (( MODULE_NUM >= 17 && MODULE_NUM <= 23 )); then
+              SERVICE="exam"
+            elif (( MODULE_NUM >= 24 && MODULE_NUM <= 27 )) || [[ $MODULE_NUM == 56 ]] || [[ $MODULE_NUM == 57 ]]; then
+              SERVICE="billing"
+            elif (( MODULE_NUM >= 34 && MODULE_NUM <= 38 )); then
+              SERVICE="notification"
+            elif (( MODULE_NUM >= 44 && MODULE_NUM <= 48 )); then
+              SERVICE="ai"
+            elif (( MODULE_NUM >= 53 && MODULE_NUM <= 55 )); then
+              SERVICE="analytics"
+            else
+              SERVICE="portal"
+            fi
+            if [[ $MODULE_NUM == "01" ]]; then SERVICE="identity"; fi
+          elif [[ "$BRANCH" == feature/group-* ]]; then
+            SERVICE="portal"
+          else
+            SERVICE="identity"
+          fi
+          TASK=$(echo $BRANCH | sed 's/feature\///')
+          echo "service=$SERVICE" >> $GITHUB_OUTPUT
+          echo "task=$TASK" >> $GITHUB_OUTPUT
+
+      - name: Create test scaffold
+        run: |
+          SERVICE="${{ steps.parse.outputs.service }}"
+          TASK="${{ steps.parse.outputs.task }}"
+          TEST_FILE="$SERVICE/tests/test_${TASK//-/_}.py"
+          mkdir -p "$SERVICE/tests"
+          if [ ! -f "$TEST_FILE" ]; then
+            cat > "$TEST_FILE" << TESTEOF
+          """
+          Tests for: $TASK
+          Service:   $SERVICE
+          Branch:    ${{ github.ref_name }}
+          """
+          import pytest
+
+
+          # ─── Unit Tests ───────────────────────────────────────────────────
+
+
+          class TestUnit:
+              """Pure unit tests — no DB, no network."""
+
+              def test_placeholder(self):
+                  # TODO: replace with real unit tests
+                  assert True
+
+
+          # ─── Integration Tests ────────────────────────────────────────────
+
+
+          class TestIntegration:
+              """Integration tests — real DB, real service."""
+
+              @pytest.mark.asyncio
+              async def test_placeholder(self):
+                  # TODO: replace with real integration tests
+                  assert True
+
+
+          # ─── API Contract Tests ───────────────────────────────────────────
+
+
+          class TestAPI:
+              """API contract tests — test all endpoints for this task."""
+
+              @pytest.mark.asyncio
+              async def test_placeholder(self):
+                  # TODO: add endpoint tests using httpx AsyncClient
+                  assert True
+          TESTEOF
+            echo "Created $TEST_FILE"
+          fi
+
+      - name: Commit test scaffold
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --staged --quiet; then
+            echo "No new test files to commit"
+          else
+            git commit -m "chore: scaffold tests for ${{ steps.parse.outputs.task }}"
+            git push origin ${{ github.ref_name }}
+          fi

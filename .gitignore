@@ -13,15 +13,23 @@ MANIFEST
 # Virtual environments
 venv/
 .venv/
-env/
 .env/
 ENV/
 
-# Environment files
+# Environment files — root level
 .env
 .env.local
 .env.*.local
 !.env.example
+
+# env/ folder — track template files, ignore files with real secrets
+# dev has generated secrets — do NOT commit to public repos in real use
+# All env/*.env.* files are templates (contain CHANGE_ME for prod/staging/qa)
+!env/
+!env/.env.dev
+!env/.env.qa
+!env/.env.staging
+!env/.env.production
 
 # IDE
 .vscode/
